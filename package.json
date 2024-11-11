@@ -1,0 +1,25 @@
+{
+  "name": "backend-browser-notification-company-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "louam lemjis",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.4.1",
+    "node-cron": "^3.0.3",
+    "nodemon": "^3.1.3",
+    "randomized-string": "^2.0.1",
+    "request-ip": "^3.3.0",
+    "ws": "^8.17.0"
+  }
+}
