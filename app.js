@@ -7,7 +7,8 @@ const bodyParser=require('body-parser')
 var session = require('express-session')
 const os =require("os")
 const { Employee, Company } = require("./db");
-const http = require('https')
+const http = require('http')
+const app = express();
 const cors = require('cors');
 const {WebSocket}=require("ws")
 const cron=require('node-cron')
@@ -18,7 +19,7 @@ const mongoose =require('mongoose');
 const jwt = require('jsonwebtoken');
 const dotenv=require('dotenv')
 dotenv.config() 
-const app = express();
+const server=http.createServer(app)
 const PORT = 3001;
 
 // const userDataPath = app.getPath('userData');
@@ -108,14 +109,14 @@ function returnRandomOutput(inputList){
     return output || `No data available for :,${randomIndex}`;
 }
 
-mongoose.connect("mongodb+srv://louam-lemjid:8hAgfKf2ZDauLxoj@cluster0.mjqmopn.mongodb.net/Notificationdb");
+mongoose.connect(process.env.MONGODB_LINK);
 
 
 const db = mongoose.connection;
 
 
   // Set up the WebSocket server
-  const wss = new WebSocket.Server({ port: 8080 });
+  const wss = new WebSocket.Server({ noServer: true });
   app.use(session({
       
       secret: "top secret !",
@@ -140,6 +141,11 @@ app.use(cors());
     console.log('Connected to the database');
     //do something
     try{
+        server.on('upgrade', (req, socket, head) => {
+            wss.handleUpgrade(req, socket, head, (ws) => {
+              wss.emit('connection', ws, req);
+            });
+          });
         app.post('/login', async (req, res) => {
             try {
                 const { userId, password } = req.body;
@@ -528,6 +534,6 @@ app.use(cors());
       }
     })
 
-  app.listen(PORT, () => {
+    server.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
   });
