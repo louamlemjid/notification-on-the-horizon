@@ -8,6 +8,7 @@ const companyschema=new mongoose.Schema({
     userId:String,
     ip:String,
     team:String,
+    adsLink:String,
     events:[
         {
             name:String,

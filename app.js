@@ -146,6 +146,8 @@ app.use(cors());
               wss.emit('connection', ws, req);
             });
           });
+        //   await Company.updateOne({serialId:"RFGS0v"},
+        //     {$set:{adsLink:"https://www.youtube.com/embed/nToFz87NdyE?si=uVorKBTtZpSB3fSv"}})
         app.post('/login', async (req, res) => {
             try {
                 const { userId, password } = req.body;
@@ -209,12 +211,29 @@ app.use(cors());
                 res.status(500).send("Internal server error");
             }
         });
+        app.get('/api', async (req, res) => {
+            try {
+                console.log("visited")
+                const imagePath = join(__dirname, "public", "hlux.png");
         
+                // Read the file as a buffer using fs/promises
+                const imageBuffer = await fs.readFile(imagePath);
+        
+                // Set the appropriate content type
+                res.set('Content-Type', 'image/png');
+        
+                // Send the image buffer
+                res.status(200).send(imageBuffer);
+            } catch (error) {
+                console.error("API route failed: ", error);
+                res.status(500).json({ error: "Failed to fetch the image." });
+            }
+        });
         app.get('/companyAdsLink',async (req,res)=>{
             try {
                 const getUser=await Employee.findOne({email:sessionEmail})
                 if(getUser && getUser.companyId){
-                    console.log("companyName: ",companyLink)
+                    
                     const getCompany=await Company.findOne({serialId:getUser.companyId}).lean()
                     const companyAdsLink=getCompany.adsLink
                     res.status(200).json({companyAdsLink:companyAdsLink})
