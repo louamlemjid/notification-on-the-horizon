@@ -52,7 +52,7 @@ function verifyToken(req, res, next) {
     }
   
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
       console.log("decoded token: ",decoded)
       req.user = decoded; // Store the decoded token data (userId, email, etc.) in req.user
       next();
