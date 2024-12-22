@@ -46,13 +46,14 @@ const clearExistingCronJob = () => {
 // Middleware to verify JWT
 function verifyToken(req, res, next) {
     const token = req.headers['authorization'];
-  
+    console.log("token retrieved: ",token)
     if (!token) {
       return res.status(401).send('Access denied. No token provided.');
     }
   
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log("decoded token: ",decoded)
       req.user = decoded; // Store the decoded token data (userId, email, etc.) in req.user
       next();
     } catch (error) {
