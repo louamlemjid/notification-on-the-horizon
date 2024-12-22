@@ -192,26 +192,35 @@ app.use(cors());
         
         app.post('/refresh-token', (req, res) => {
             const { refreshToken } = req.body;
-            if (!refreshToken) return res.sendStatus(401);
-            
-            try {
-                jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET, (err, user) => {
-                    if (err) return res.sendStatus(403).send("invalid refreshtocken"); // Invalid refresh token
-                    
-                    // Generate a new access token
+        
+            // Check if refreshToken is provided
+            if (!refreshToken) {
+                return res.sendStatus(401); // Unauthorized
+            }
+        
+            // Verify the refresh token
+            jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET, (err, user) => {
+                if (err) {
+                    console.error("Invalid refresh token:", err);
+                    return res.status(403).json({ message: "Invalid refresh token" }); // Forbidden
+                }
+        
+                // Generate a new access token
+                try {
                     const newAccessToken = jwt.sign(
                         { userId: user.userId, email: user.email },
                         process.env.JWT_SECRET,
                         { expiresIn: '24h' }
                     );
-                    
-                    res.status(200).json({ accessToken: newAccessToken });
-                });
-            } catch (error) {
-                console.error("refresh-token route failed: ", error);
-                res.status(500).send("Internal server error");
-            }
+        
+                    return res.status(200).json({ accessToken: newAccessToken }); // Respond with the new access token
+                } catch (error) {
+                    console.error("Error generating new access token:", error);
+                    return res.status(500).json({ message: "Internal server error" }); // Handle token generation errors
+                }
+            });
         });
+        
         app.get('/api', async (req, res) => {
             try {
                 console.log("visited")
