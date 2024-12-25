@@ -115,7 +115,7 @@ mongoose.connect(process.env.MONGODB_LINK);
 
 const db = mongoose.connection;
 
-
+app.use(cors());
   // Set up the WebSocket server
   const wss = new WebSocket.Server({ noServer: true });
   app.use(session({
@@ -129,7 +129,7 @@ const db = mongoose.connection;
   }));
 
 
-app.use(cors());
+
 
   app.use(bodyParser.urlencoded({extended:true}));
   app.use(bodyParser.json());
