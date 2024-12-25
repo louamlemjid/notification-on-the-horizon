@@ -181,18 +181,18 @@ app.use(cors());
         });
         
         app.post('/refresh-token', (req, res) => {
-            const { refreshToken } = req.body;
+            const { accessToken } = req.body;
         
             // Check if refreshToken is provided
-            if (!refreshToken) {
-                return res.sendStatus(401); // Unauthorized
+            if (!accessToken) {
+                return res.status(401).json({error:"no token retrieved"}); // Unauthorized
             }
         
             // Verify the refresh token
-            jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET, (err, user) => {
+            jwt.verify(accessToken, process.env.JWT_SECRET, (err, user) => {
                 if (err) {
-                    console.error("Invalid refresh token:", err);
-                    return res.status(403).json({ message: "Invalid refresh token" }); // Forbidden
+                    console.error("Invalid token:", err);
+                    return res.status(201).json({ error: "Invalid token" }); // Forbidden
                 }
         
                 // Generate a new access token
@@ -206,7 +206,7 @@ app.use(cors());
                     return res.status(200).json({ accessToken: newAccessToken }); // Respond with the new access token
                 } catch (error) {
                     console.error("Error generating new access token:", error);
-                    return res.status(500).json({ message: "Internal server error" }); // Handle token generation errors
+                    return res.status(500).json({ error: "Internal server error" }); // Handle token generation errors
                 }
             });
         });
