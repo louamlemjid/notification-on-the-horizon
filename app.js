@@ -118,6 +118,7 @@ const db = mongoose.connection;
 app.use(cors());
   // Set up the WebSocket server
   const wss = new WebSocket.Server({ noServer: true });
+  app.set('trust proxy', true)
   app.use(session({
       
       secret: process.env.SESSION_SECRET,
