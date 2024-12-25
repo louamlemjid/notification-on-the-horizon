@@ -48,11 +48,11 @@ function verifyToken(req, res, next) {
     const token = req.headers['authorization'];
     console.log("token retrieved: ",token)
     if (!token) {
-      return res.status(401).send('Access denied. No token provided.');
+      return res.status(401).json({error:'Access denied. No token provided.'});
     }
   
     try {
-      const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
       console.log("decoded token: ",decoded)
       req.user = decoded; // Store the decoded token data (userId, email, etc.) in req.user
       next();
@@ -159,34 +159,24 @@ app.use(cors());
                     const accessToken = jwt.sign(
                         { userId: loginEmployee.userId, email: loginEmployee.email },
                         process.env.JWT_SECRET,
-                        { expiresIn: '1h' } // Token expires in 1 hour
-                    );
-                    const refreshToken = jwt.sign(
-                        { userId: loginEmployee.userId, email: loginEmployee.email },
-                        process.env.JWT_REFRESH_SECRET, // Different secret for refresh token
-                        { expiresIn: '7d' } // Refresh token expires in 7 days
+                        { expiresIn: '24h' } // Token expires in 24 hours
                     );
                     
-                    res.json({ loginInfo: "employee", name: loginEmployee.name, accessToken, refreshToken });
+                    res.status(200).json({ loginInfo: "employee", name: loginEmployee.name, accessToken });
                 } else if (loginCompany) {
                     const accessToken = jwt.sign(
                         { userId: loginCompany.userId, email: loginCompany.email },
                         process.env.JWT_SECRET,
                         { expiresIn: '1h' }
                     );
-                    const refreshToken = jwt.sign(
-                        { userId: loginCompany.userId, email: loginCompany.email },
-                        process.env.JWT_REFRESH_SECRET,
-                        { expiresIn: '7d' }
-                    );
                     
-                    res.json({ loginInfo: "company", accessToken, refreshToken });
+                    res.json({ loginInfo: "company", accessToken });
                 } else {
                     res.json({ loginInfo: "notFound" });
                 }
             } catch (error) {
                 console.error("login route failed: ", error);
-                res.status(500).send("Internal server error");
+                res.status(400).json({error:"Login failed from the server login route"});
             }
         });
         
@@ -465,7 +455,7 @@ app.use(cors());
             res.status(200).json({ loginInfo: "employee", name: connectedEmployee.name });
             console.log("connected employee from checkLgin route: ",connectedEmployee)
           } else {
-            res.status(200).json({ loginInfo: "none" });
+            res.status(201).json({ loginInfo: "none" });
             console.log("no connected employee from checkLgin route: ")
           }
         } catch (error) {
