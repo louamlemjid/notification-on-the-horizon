@@ -17,7 +17,8 @@ const fs=require('fs/promises')
 const { join }=require('path')
 const mongoose =require('mongoose');
 const jwt = require('jsonwebtoken');
-const dotenv=require('dotenv')
+const dotenv=require('dotenv');
+const { verify } = require('crypto');
 dotenv.config() 
 const server=http.createServer(app)
 const PORT = 3001;
@@ -26,7 +27,7 @@ const PORT = 3001;
 const userDataPath = join(__dirname, 'userdata.json');
 const dataFilePath = join(userDataPath, 'userdata.json');
 let currentCronJob;
-
+let wsClients={};
 async function saveUserData(data) {
   try {
     await fs.writeFile(dataFilePath, JSON.stringify(data));
@@ -54,7 +55,7 @@ function verifyToken(req, res, next) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       console.log("decoded token: ",decoded)
-      req.user = decoded; // Store the decoded token data (userId, email, etc.) in req.user
+      req.user = decoded; // Store the decoded token data (userId, email) in req.user
       next();
     } catch (error) {
       res.status(400).json({message:'Invalid token.'});
@@ -229,9 +230,9 @@ app.use(cors());
                 res.status(500).json({ error: "Failed to fetch the image." });
             }
         });
-        app.get('/companyAdsLink',async (req,res)=>{
+        app.get('/companyAdsLink',verifyToken,async (req,res)=>{
             try {
-                const getUser=await Employee.findOne({email:req.session.email})
+                const getUser=await Employee.findOne({email:req.user.email})
                 if(getUser && getUser.companyId){
                     
                     const getCompany=await Company.findOne({serialId:getUser.companyId}).lean()
@@ -245,7 +246,18 @@ app.use(cors());
             }
         })
         //test socket 
-        wss.on('connection', function connection(ws, req) {
+        wss.on('connection',async function connection(ws, req) {
+            console.log('Client connected');
+            const url = new URL(req.url, 'https://notification-on-the-horizon.onrender.com/');
+            // Get the value of userId from the query string
+            const userId = url.searchParams.get('userId');
+            console.log(userId);
+            const userEmailQuery=await Employee.findOne({userId:userId})
+            const userEmail=userEmailQuery.email
+            if(userEmail){
+                wsClients[userEmail]=ws;
+                console.log(userEmail,"--- stored in wsClients");
+            }
             try {
                 var component=""
             ws.on('error', console.error);
@@ -276,12 +288,12 @@ app.use(cors());
                     // })
                     // .catch((error)=>console.error("promise notification: ",error))
                     try {
-                        const getUser=await Employee.findOne({email:req.session.email})
+                        const getUser=await Employee.findOne({email:userEmail})
                         if(getUser){
                             let companySerialId=getUser.companyId;
                             let getCompany=await Company.findOne({serialId:companySerialId}).lean()
                             let randomOutput=returnRandomOutput([getCompany.events,getCompany.rules,getCompany.tasks,getCompany.urgents]) 
-                            ws.send(JSON.stringify(
+                            wsClients[userEmail].send(JSON.stringify(
                             {text:randomOutput.split(",")[0],author:randomOutput.split(",")[1]}))
                             console.log("new quote is sent..")
                     }
@@ -298,7 +310,7 @@ app.use(cors());
               Company.watch().on('change', async(data) => {
                 console.log("changes made: ",data)
                 if(data.operationType=='update'){
-                    const getUser=await Employee.findOne({email:req.session.email})
+                    const getUser=await Employee.findOne({email:userEmail})
                     if(getUser){
                         let companySerialId=getUser.companyId;
                         let getCompany=await Company.findOne({serialId:companySerialId}).lean()
@@ -321,19 +333,19 @@ app.use(cors());
                         console.log(Object.keys(updatedField)[0])
 
                         if(Object.keys(updatedField)[0].match(/events/g)){
-                            ws.send(JSON.stringify({events:dataToSend.events}));
+                            wsClients[userEmail].send(JSON.stringify({events:dataToSend.events}));
                         console.log("events...")
 
                         }else if(Object.keys(updatedField)[0].match(/urgents/g)){
-                            ws.send(JSON.stringify({urgents:dataToSend.urgents}));
+                            wsClients[userEmail].send(JSON.stringify({urgents:dataToSend.urgents}));
                         console.log("urgents...")
                         
                         }else if(Object.keys(updatedField)[0].match(/tasks/g)){      
-                            ws.send(JSON.stringify({tasks:dataToSend.tasks}));                       
+                            wsClients[userEmail].send(JSON.stringify({tasks:dataToSend.tasks}));                       
                         console.log("tasks...")
                         
                         }else if(Object.keys(updatedField)[0].match(/vote/g)){
-                            ws.send(JSON.stringify({voteSubject:dataToSend.voteSubject}));
+                            wsClients[userEmail].send(JSON.stringify({voteSubject:dataToSend.voteSubject}));
                         console.log("vote...")
                         }
                     }   
@@ -342,7 +354,7 @@ app.use(cors());
             Employee.watch().on('change', async(data) => {
                 console.log("changes made: ",data)
                 if(data.operationType=='update'){
-                    const getUser=await Employee.findOne({email:req.session.email})
+                    const getUser=await Employee.findOne({email:userEmail})
                     let updatedField=data.updateDescription.updatedFields
                     if(Object.keys(updatedField)[0].match(/vote/g)){
                         let getCompany=await Company.findOne({serialId:getUser.companyId}).lean()
@@ -374,7 +386,7 @@ app.use(cors());
                             console.log('Loaded user data in server express after change stream: ', userData);
                             if(connectedEmployee!=null){
                                 ws.send(JSON.stringify({loginInfo:"employee",name:connectedEmployee.name}))
-                                req.session.email=connectedEmployee.email
+                                req.user.email=connectedEmployee.email
                                 console.log("connected employee from checkLgin route: ",connectedEmployee)
                             }else{
                                 ws.send(JSON.stringify({loginInfo:"none"}))
@@ -389,12 +401,12 @@ app.use(cors());
             }
           });
         //vote post route
-        app.post('/vote',async(req,res)=>{
+        app.post('/vote',verifyToken,async(req,res)=>{
             try {
                 const {vote}=req.body
             let subjectVote=''
             console.log("vote route triggered: ",vote)
-            const getUser=await Employee.findOne({email:req.session.email})
+            const getUser=await Employee.findOne({email:req.user.email})
             console.log(getUser)
             if(getUser){
                 const getCompany=await Company.findOneAndUpdate({serialId:getUser.companyId},
@@ -408,11 +420,11 @@ app.use(cors());
             }
         })
         //search route
-        app.get('/search',async(req,res)=>{
+        app.get('/search',verifyToken,async(req,res)=>{
             try {
                 const {search}=req.query;
                 console.log("search: ",search);
-                const getUser=await Employee.findOne({email:req.session.email})
+                const getUser=await Employee.findOne({email:req.user.email})
                 if(getUser){
                     let companySerialId=getUser.companyId;
                     let team=getUser.team;
@@ -452,8 +464,12 @@ app.use(cors());
             console.log("req.user.email: ",req.user.email)
           const connectedEmployee = await Employee.findOne({ email: req.user.email });
           if (connectedEmployee != null) {
-            req.session.email=req.user.email;
-            res.status(200).json({ loginInfo: "employee", name: connectedEmployee.name });
+            req.user.email=req.user.email;
+            res.status(200).json({ 
+                loginInfo: "employee"
+                , name: connectedEmployee.name
+                ,userId: connectedEmployee.userId 
+            });
             console.log("connected employee from checkLgin route: ",connectedEmployee)
           } else {
             res.status(201).json({ loginInfo: "none" });
@@ -466,10 +482,10 @@ app.use(cors());
       });
       
         //notification employee
-        app.get('/notification-starter-employee',async(req,res)=>{
+        app.get('/notification-starter-employee',verifyToken,async(req,res)=>{
             try {
-                console.log("req.session.email: get ",req.session.email)
-            const findEmployee=await Employee.findOne({email:req.session.email})
+                console.log("req.user.email: ",req.user.email)
+            const findEmployee=await Employee.findOne({email:req.user.email})
             console.log("employee found in notification started route: ",findEmployee)
             if(findEmployee){
             const companySerialId=findEmployee.companyId
@@ -491,7 +507,7 @@ app.use(cors());
              console.error("notification starter employee route failed: ",error);   
             }
         })
-        app.get('/events', (req, res) => {
+        app.get('/events',verifyToken, (req, res) => {
             try {
                 res.setHeader('Content-Type', 'application/json');
             res.setHeader('Cache-Control', 'no-cache');
@@ -500,7 +516,7 @@ app.use(cors());
             Company.watch().on('change', async(data) => {
                 console.log("changes made: ",data)
                 if(data.operationType=='update'){
-                    const getUser=await Employee.findOne({email:req.session.email})
+                    const getUser=await Employee.findOne({email:req.user.email})
                     if(getUser){
                         let companySerialId=getUser.companyId;
                         let getCompany=await Company.findOne({serialId:companySerialId}).lean()
