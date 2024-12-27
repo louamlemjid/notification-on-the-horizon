@@ -247,18 +247,19 @@ app.use(cors());
         })
         //test socket 
         wss.on('connection',async function connection(ws, req) {
-            console.log('Client connected');
+            
+            try {
+                console.log('Client connected');
             const url = new URL(req.url, 'https://notification-on-the-horizon.onrender.com/');
             // Get the value of userId from the query string
             const userId = url.searchParams.get('userId');
             console.log(userId);
             const userEmailQuery=await Employee.findOne({userId:userId})
-            const userEmail=userEmailQuery.email
+            const userEmail=userEmailQuery?.email
             if(userEmail){
                 wsClients[userEmail]=ws;
                 console.log(userEmail,"--- stored in wsClients");
             }
-            try {
                 var component=""
             ws.on('error', console.error);
             
